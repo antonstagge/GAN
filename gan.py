@@ -6,6 +6,7 @@ mnist = tf.keras.datasets.mnist
 (x_train, y_train), (x_test, y_test) = mnist.load_data()   # 28x28 numbers of 0-9
 
 
+
 x_train = tf.keras.utils.normalize(x_train, axis=1).reshape(x_train.shape[0], -1) # (60000, 784) instead of (60000, 28, 28)
 x_test = tf.keras.utils.normalize(x_test, axis=1).reshape(x_test.shape[0], -1)
 
@@ -23,13 +24,10 @@ def model_inputs(image_size, z_dim):
     """
     inputs_real = tf.placeholder(tf.float32, shape=(None, image_size), name='input_real') 
     inputs_z = tf.placeholder(tf.float32, (None, z_dim), name='input_z')
-    learning_rate = tf.placeholder(tf.float32, name='learning_rate')
     
-    return inputs_real, inputs_z, learning_rate
+    return inputs_real, inputs_z
 
 def discriminator(images, reuse=False):
-    alpha = 0.2
-
     with tf.variable_scope('discriminator', reuse=reuse):
         # Layer 1
         layer1 = tf.layers.dense(images, 128, activation=tf.nn.relu)
@@ -45,8 +43,6 @@ def discriminator(images, reuse=False):
         return out, logits
 
 def generator(z, out_dim, is_train=True):
-    alpha = 0.2
-    
     with tf.variable_scope('generator', reuse=False if is_train==True else True):
         # Layer 1
         layer1 = tf.layers.dense(z, 128, activation=tf.nn.relu)
@@ -70,7 +66,7 @@ def model_loss(input_real, input_z, out_dim):
     g_model = generator(input_z, out_dim)
     d_model_real, d_logits_real = discriminator(input_real)
     d_model_fake, d_logits_fake = discriminator(g_model, reuse=True)
-    
+
     d_loss_real = tf.reduce_mean(
         tf.nn.sigmoid_cross_entropy_with_logits(logits=d_logits_real,
                                                 labels=tf.ones_like(d_model_real) * label_smoothing))
@@ -79,12 +75,11 @@ def model_loss(input_real, input_z, out_dim):
                                                 labels=tf.zeros_like(d_model_fake)))
     
     d_loss = d_loss_real + d_loss_fake
-                                                  
+
     g_loss = tf.reduce_mean(
         tf.nn.sigmoid_cross_entropy_with_logits(logits=d_logits_fake,
                                                 labels=tf.ones_like(d_model_fake) * label_smoothing))
-    
-    
+
     return d_loss, g_loss
 
 def model_opt(d_loss, g_loss, learning_rate, beta1):
@@ -120,7 +115,7 @@ def train(epoch_count, batch_size, z_dim, learning_rate, beta1, get_batches, dat
     """
     Train the GAN
     """
-    input_real, input_z, _ = model_inputs(data_shape[1], z_dim)
+    input_real, input_z = model_inputs(data_shape[1], z_dim)
     d_loss, g_loss = model_loss(input_real, input_z, data_shape[1])
     d_opt, g_opt = model_opt(d_loss, g_loss, learning_rate, beta1)
     
@@ -131,6 +126,9 @@ def train(epoch_count, batch_size, z_dim, learning_rate, beta1, get_batches, dat
         try:
             saver.restore(sess, "./model.ckpt")
             print("Model restored!")
+            for i in range(20):
+                show_generator_output(sess, 1, input_z, data_shape[1])
+            return
         except ValueError:
             sess.run(tf.global_variables_initializer())
 
@@ -155,9 +153,6 @@ def train(epoch_count, batch_size, z_dim, learning_rate, beta1, get_batches, dat
                           "Discriminator Loss: {:.4f}...".format(train_loss_d),
                           "Generator Loss: {:.4f}".format(train_loss_g))
 
-            if True:        
-                show_generator_output(sess, 1, input_z, data_shape[1])
-
         save_path = saver.save(sess, './model.ckpt')
         print("model saved in %s" % save_path)
         
@@ -166,7 +161,7 @@ batch_size = 16
 z_dim = 10
 learning_rate = 0.0002
 beta1 = 0.5
-epochs = 3
+epochs = 20
 shape = 60000, 28*28
 
 with tf.Graph().as_default():
