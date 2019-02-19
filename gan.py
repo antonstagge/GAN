@@ -22,50 +22,40 @@ def get_batches(batch_size):
         yield data_batch
 
 
-def show_generator_output(sess, n_images, input_z, out_dim):
+def show_generator_output(sess, layer_count):
     """
     Show example output for the generator
     """
-    z_dim = input_z.get_shape().as_list()[-1]
-    example_z = np.random.uniform(-1, 1, size=[n_images, z_dim])
+    input_real, input_z, t_value = model_inputs(z_dim, layer_count)
+    
+    example_z = np.random.uniform(-1, 1, size=[batch_size, z_dim])
+    t_value_in = 1
 
     samples = sess.run(
-        generator(input_z, out_dim, False),
-        feed_dict={input_z: example_z})
+        generator(input_z, layer_count, t_value, True),
+        feed_dict={input_z: example_z, t_value: t_value_in})
 
-    plt.imshow(samples.reshape((28,28)), cmap=plt.cm.binary)
-    plt.show()
+    for sample in samples:
+        plt.imshow(sample.reshape((layer_sizes[layer_count],layer_sizes[layer_count])), cmap=plt.cm.binary)
+        plt.show()
 
-def downsize_real(batch_images, layer_count, sess):
+def downsize_real(batch_images, layer_count):
     if layer_count == 2:
         return batch_images
     current_size = int(np.sqrt(batch_images.shape[1]))
     next_size = int(current_size / 2)
-    new_arr = np.ndarray((16, next_size**2))
+    new_arr = np.ndarray((batch_size, next_size**2))
     for i, image in enumerate(batch_images):
         image = image.reshape(current_size, current_size)
         re = image[:next_size*2, :next_size*2].reshape(next_size, 2, next_size, 2).max(axis=(1, 3))
         re = re.reshape(next_size**2)
         new_arr[i] = re
-    return downsize_real(new_arr, layer_count +1, sess)
-    # image = tf.reshape(tensor_image, (16,28, 28, 1))
-    # if layer_count == 0:
-    #     pooled1 = tf.layers.average_pooling2d(image, [2, 2], 2)
-    #     pooled2 = tf.layers.average_pooling2d(pooled1, [2, 2], 2)
-    #     smaller = sess.run(tf.reshape(pooled2, (16, layer_sizes[layer_count]**2)))
-    #     return smaller
-    # if layer_count == 1:
-    #     pooled1 = tf.layers.average_pooling2d(image, [2, 2], 2)
-    #     smaller = sess.run(tf.reshape(pooled1, (16, layer_sizes[layer_count]**2)))
-    #     return smaller
-    # if layer_count == 2:
-    #     smaller = sess.run(tf.reshape(image, (16, layer_sizes[layer_count]**2)))
-    #     return smaller
+    return downsize_real(new_arr, layer_count +1)
 
 def scale_down_sample(image_tensor, layer_count):
-    re = tf.reshape(image_tensor, (16, layer_sizes[layer_count], layer_sizes[layer_count], 1))
+    re = tf.reshape(image_tensor, (batch_size, layer_sizes[layer_count], layer_sizes[layer_count], 1))
     pool = tf.layers.average_pooling2d(re, [2,2], 2)
-    back = tf.reshape(pool, (16, layer_sizes[layer_count-1]**2))
+    back = tf.reshape(pool, (batch_size, layer_sizes[layer_count-1]**2))
     return back
 
 def scale_up_sample(image_tensor, layer_count):
@@ -98,82 +88,73 @@ def discriminator(images, layer_count, t_value, reuse=False):
     the input given is a real (1) or fake (0)
     image. 
     """
-    with tf.variable_scope('discriminator', reuse=reuse):
-        if layer_count == 0:
-            layer1 = tf.layers.dense(images, 1)
-            out = tf.sigmoid(layer1)
-            return out, layer1
+    with tf.variable_scope('discriminator', reuse=tf.AUTO_REUSE):
+        if layer_count == 3:
+            down_sample = scale_down_sample(images, layer_count)
+            layer3 = tf.layers.dense(images, layer_sizes[2]**2, activation=tf.nn.relu, name="d_lay3")
+
+            if t_value != -1:
+                layer3 = (1-t_value)*down_sample + t_value*layer3
+
+            layer2 = tf.layers.dense(layer3, layer_sizes[1]**2, activation=tf.nn.relu, name="d_lay2")
+            layer1 = tf.layers.dense(layer2, layer_sizes[0]**2, activation=tf.nn.relu, name="d_lay1")
+
+        if layer_count == 2:
+            down_sample = scale_down_sample(images, layer_count)
+            layer2 = tf.layers.dense(images, layer_sizes[1]**2, activation=tf.nn.relu, name="d_lay2")
+
+            if t_value != -1:
+                layer2 = (1-t_value)*down_sample + t_value*layer2
+
+            layer1 = tf.layers.dense(layer2, layer_sizes[0]**2, activation=tf.nn.relu, name="d_lay1")
 
         if layer_count == 1:
             down_sample = scale_down_sample(images, layer_count)
-            layer1 = tf.layers.dense(images, layer_sizes[0]**2, activation=tf.nn.relu)
+            layer1 = tf.layers.dense(images, layer_sizes[0]**2, activation=tf.nn.relu, name="d_lay1")
 
             if t_value != -1:
                 layer1 = (1-t_value)*down_sample + t_value*layer1
-
-            layer2 = tf.layers.dense(layer1, 1)
-            out = tf.sigmoid(layer2)
-            return out, layer2
         
-        if layer_count == 2:
-            down_sample = scale_down_sample(images, layer_count)
-            layer1 = tf.layers.dense(images, layer_sizes[1]**2, activation=tf.nn.relu)
-
-            if t_value != -1:
-                layer1 = (1-t_value)*down_sample + t_value*layer1
-
-            layer2 = tf.layers.dense(layer1, layer_sizes[0]**2, activation=tf.nn.relu)
-            layer3 = tf.layers.dense(layer2, 1)
-            out = tf.sigmoid(layer3)
-            return out, layer3
+        if layer_count == 0:
+            layer1 = images
         
-        if layer_count == 3:
-            down_sample = scale_down_sample(images, layer_count)
-            layer1 = tf.layers.dense(images, layer_sizes[2]**2, activation=tf.nn.relu)
+        layer0 = tf.layers.dense(layer1, 1, name="d_lay0")
+        out = tf.sigmoid(layer0)
+        return out, layer0
+        
+        
 
-            if t_value != -1:
-                layer1 = (1-t_value)*down_sample + t_value*layer1
-
-            layer2 = tf.layers.dense(layer1, layer_sizes[1]**2, activation=tf.nn.relu)
-            layer3 = tf.layers.dense(layer1, layer_sizes[0]**2, activation=tf.nn.relu)
-            layer4 = tf.layers.dense(layer3, 1)
-            out = tf.sigmoid(layer4)
-            return out, layer4
-
-def generator(z, layer_count, t_value, is_train=True):
+def generator(z, layer_count, t_value, reuse=False):
     """ The generator will take a random noise 
     tensor z as input and generate a new never 
     seen before image.
     """
-    with tf.variable_scope('generator', reuse=False if is_train==True else True):
-        layer0 = tf.layers.dense(z, layer_sizes[0]**2, activation=tf.nn.relu)
+    with tf.variable_scope('generator', reuse=tf.AUTO_REUSE):
+        layer0 = tf.layers.dense(z, layer_sizes[0]**2, activation=tf.nn.relu, name="g_lay0")
         if layer_count == 0:
             out = tf.tanh(layer0)
             return out
 
-        layer1 = tf.layers.dense(layer0, layer_sizes[1]**2, activation=tf.nn.relu)
+        layer1 = tf.layers.dense(layer0, layer_sizes[1]**2, activation=tf.nn.relu, name="g_lay1")
         if layer_count == 1:
             out = tf.tanh(layer1)
-            if t_value != -1:
-                up_sample = tf.tanh(scale_up_sample(layer0, layer_count))
-                out = (1-t_value)*up_sample + t_value*out
+            up_sample = tf.tanh(scale_up_sample(layer0, layer_count))
+            out = (1-t_value)*up_sample + t_value*out
             return out
         
-        layer2 = tf.layers.dense(layer1, layer_sizes[2]**2, activation=tf.nn.relu)
+        layer2 = tf.layers.dense(layer1, layer_sizes[2]**2, activation=tf.nn.relu, name="g_lay2")
         if layer_count == 2:
             out = tf.tanh(layer2)
-            if t_value != -1:
-                up_sample = tf.tanh(scale_up_sample(layer1, layer_count))
-                out = (1-t_value)*up_sample + t_value*out
+            up_sample = tf.tanh(scale_up_sample(layer1, layer_count))
+            out = (1-t_value)*up_sample + t_value*out
             return out
         
         
-        layer3 = tf.layers.dense(layer2, layer_sizes[3]**2, activation=tf.nn.relu)
+        layer3 = tf.layers.dense(layer2, layer_sizes[3]**2, activation=tf.nn.relu, name="g_lay3")
         if layer_count == 3:
             out = tf.tanh(layer3)
-            if t_value != -1:
-                up_sample = tf.tanh(scale_up_sample(layer2, layer_count))
-                out = (1-t_value)*up_sample + t_value*out
+            up_sample = tf.tanh(scale_up_sample(layer2, layer_count))
+            out = (1-t_value)*up_sample + t_value*out
             return out
 
 def model_loss(input_real, input_z, layer_count, t_value):
@@ -218,9 +199,10 @@ def model_opt(d_loss, g_loss, learning_rate, beta1):
     g_vars = [var for var in t_vars if var.name.startswith('generator')]
 
     # Optimize with AdamOptimizer, minimize the loss
-    with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)): 
-        d_train_opt = tf.train.AdamOptimizer(learning_rate, beta1=beta1).minimize(d_loss, var_list=d_vars)
-        g_train_opt = tf.train.AdamOptimizer(learning_rate, beta1=beta1).minimize(g_loss, var_list=g_vars)
+    with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
+        with tf.variable_scope('optimize', reuse=tf.AUTO_REUSE):
+            d_train_opt = tf.train.AdamOptimizer(learning_rate, beta1=beta1).minimize(d_loss, var_list=d_vars)
+            g_train_opt = tf.train.AdamOptimizer(learning_rate, beta1=beta1).minimize(g_loss, var_list=g_vars)
 
     return d_train_opt, g_train_opt
 
@@ -228,7 +210,6 @@ def train(epoch_count, batch_size, z_dim, learning_rate, beta1, get_batches, dat
     """
     Train the GAN
     """
-    image_size = layer_sizes[layer_count]
 
     input_real, input_z, t_value = model_inputs(z_dim, layer_count)
     d_loss, g_loss = model_loss(input_real, input_z, layer_count, t_value)
@@ -240,10 +221,10 @@ def train(epoch_count, batch_size, z_dim, learning_rate, beta1, get_batches, dat
         print_loss = True
         steps = 0
         for batch_images in get_batches(batch_size):
-            downsized = downsize_real(batch_images, layer_count, sess)
+            downsized = downsize_real(batch_images, layer_count)
             # create some random noise
             batch_z = np.random.uniform(-1, 1, size=(batch_size, z_dim))
-            t_value_in = -1
+            t_value_in = 1
             if smoothing:
                 #TODO: Calc t_value
                 t_value_in = 0.5
@@ -264,7 +245,9 @@ def train(epoch_count, batch_size, z_dim, learning_rate, beta1, get_batches, dat
                 print("Epoch {}/{}...".format(epoch_i+1, epochs),
                         "Discriminator Loss: {:.4f}...".format(train_loss_d),
                         "Generator Loss: {:.4f}".format(train_loss_g))
+        
         print("Done with one epoch")
+        show_generator_output(sess, layer_count)
         
 
 batch_size = 16
@@ -283,6 +266,7 @@ if __name__ == "__main__":
                 print("Layed addition complete for layer_count: %d ... Starting regular training" % layer_count)
                 train(epochs, batch_size, z_dim, learning_rate, beta1, get_batches, shape, sess, layer_count, smoothing=False)
             
+            saver = tf.train.Saver()
             # Save the model to file
             save_path = saver.save(sess, './prog_model')
             print("model saved in %s" % save_path)
