@@ -239,8 +239,8 @@ def train(epoch_count, batch_size, z_dim, learning_rate, beta1, sess, layer_coun
             if print_loss:
                 # At the start of every epoch, get the losses and print them out
                 print_loss = False
-                train_loss_d = d_loss.eval({input_z: batch_z, input_real: downsized, t_value: -1})
-                train_loss_g = g_loss.eval({input_z: batch_z, t_value: -1})
+                train_loss_d = d_loss.eval({input_z: batch_z, input_real: downsized, t_value: 1}) #TODO: check with 1!!
+                train_loss_g = g_loss.eval({input_z: batch_z, t_value: 1})
 
                 print("Epoch {}/{}...".format(epoch_i+1, epochs),
                         "Discriminator Loss: {:.4f}...".format(train_loss_d),
@@ -254,7 +254,7 @@ batch_size = 16
 z_dim = 100
 learning_rate = 0.001
 beta1 = 0 #0.5
-epochs = 10
+epochs = 1
 data_shape = 60000, 28*28
 layer_sizes = [7, 14, 28]
 
