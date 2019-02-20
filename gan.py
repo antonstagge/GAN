@@ -2,13 +2,17 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 import numpy as np
 
-mnist = tf.keras.datasets.mnist
-(x_train, y_train), (x_test, y_test) = mnist.load_data()   # 28x28 numbers of 0-9
+# mnist = tf.keras.datasets.mnist
+# (x_train, y_train), (x_test, y_test) = mnist.load_data()   # 28x28 numbers of 0-9
+
+x_train = np.load('featured_extracted_data.npy')
+print(x_train.shape)
+
+dictionary = np.load('dictionary.npy')
 
 
-
-x_train = tf.keras.utils.normalize(x_train, axis=1).reshape(x_train.shape[0], -1) # (60000, 784) instead of (60000, 28, 28)
-x_test = tf.keras.utils.normalize(x_test, axis=1).reshape(x_test.shape[0], -1)
+# x_train = tf.keras.utils.normalize(x_train, axis=1).reshape(x_train.shape[0], -1) # (60000, 784) instead of (60000, 28, 28)
+# x_test = tf.keras.utils.normalize(x_test, axis=1).reshape(x_test.shape[0], -1)
 
 def get_batches(batch_size):
     """ Return batch_size of the x_train 
@@ -33,8 +37,16 @@ def show_generator_output(sess, n_images, input_z, out_dim):
         generator(input_z, out_dim, False),
         feed_dict={input_z: example_z})
 
-    plt.imshow(samples.reshape((28,28)), cmap=plt.cm.binary)
-    plt.show()
+    sentence = ""
+    for number in samples[0]:
+        index = int(number)
+        if index < 0 or index > len(dictionary):
+            sentence += " - "
+        else:
+            word = dictionary[index]
+            sentence += " " + word
+    
+    print(sentence)
 
 def model_inputs(image_size, z_dim):
     """
@@ -84,9 +96,9 @@ def generator(z, out_dim, is_train=True):
         # Logits
         logits = tf.layers.dense(layer2, out_dim)
         
-        out = tf.tanh(logits)
+        # out = tf.math.round(logits)
         
-        return out
+        return logits
 
 def model_loss(input_real, input_z, out_dim):
     """
@@ -152,7 +164,7 @@ def train(epoch_count, batch_size, z_dim, learning_rate, beta1, get_batches, dat
             saver.restore(sess, "./model.ckpt")
             print("Model restored!")
             if show:
-                for i in range(10):
+                for i in range(1):
                     show_generator_output(sess, 1, input_z, data_shape[1])
                 return
         except ValueError:
@@ -184,11 +196,11 @@ def train(epoch_count, batch_size, z_dim, learning_rate, beta1, get_batches, dat
         
 
 batch_size = 16
-z_dim = 10
-learning_rate = 0.0002
-beta1 = 0.5
-epochs = 20
-shape = 60000, 28*28
+z_dim = 100
+learning_rate = 0.001
+beta1 = 0.0
+epochs = 500
+shape = x_train.shape
 
 if __name__ == "__main__":
     with tf.Graph().as_default():
