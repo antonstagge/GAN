@@ -6,6 +6,7 @@ import sys
 mnist = tf.keras.datasets.mnist
 (x_train, y_train), (x_test, y_test) = mnist.load_data()   # 28x28 numbers of 0-9
 
+
 x_train = tf.keras.utils.normalize(x_train, axis=1).reshape(x_train.shape[0], -1) # (60000, 784) instead of (60000, 28, 28)
 x_test = tf.keras.utils.normalize(x_test, axis=1).reshape(x_test.shape[0], -1)
 
@@ -46,7 +47,7 @@ def downsize_real(batch_images, layer_count):
     new_arr = np.ndarray((batch_size, next_size**2))
     for i, image in enumerate(batch_images):
         image = image.reshape(current_size, current_size)
-        re = image[:next_size*2, :next_size*2].reshape(next_size, 2, next_size, 2).max(axis=(1, 3)) #TODO: avg??
+        re = image[:next_size*2, :next_size*2].reshape(next_size, 2, next_size, 2).max(axis=(1, 3))
         re = re.reshape(next_size**2)
         new_arr[i] = re
     return downsize_real(new_arr, layer_count +1)
@@ -94,7 +95,7 @@ def discriminator(images, layer_count, t_value, reuse=False):
             return out, layer0
 
         if layer_count == 1:
-            layer1 = tf.layers.dense(images, layer_sizes[0]**2, activation=tf.nn.relu, name="d_lay1")
+            layer1 = tf.layers.dense(images, layer_sizes[0]**2, activation=tf.nn.leaky_relu, name="d_lay1")
             down_sample = scale_down_sample(images, layer_count)
             layer1 = (1-t_value)*down_sample + t_value*layer1
             layer0 = tf.layers.dense(layer1, 1, name="d_lay0")
@@ -102,20 +103,20 @@ def discriminator(images, layer_count, t_value, reuse=False):
             return out, layer0
         
         if layer_count == 2:
-            layer2 = tf.layers.dense(images, layer_sizes[1]**2, activation=tf.nn.relu, name="d_lay2")
+            layer2 = tf.layers.dense(images, layer_sizes[1]**2, activation=tf.nn.leaky_relu, name="d_lay2")
             down_sample = scale_down_sample(images, layer_count)
             layer2 = (1-t_value)*down_sample + t_value*layer2
-            layer1 = tf.layers.dense(layer2, layer_sizes[0]**2, activation=tf.nn.relu, name="d_lay1")
+            layer1 = tf.layers.dense(layer2, layer_sizes[0]**2, activation=tf.nn.leaky_relu, name="d_lay1")
             layer0 = tf.layers.dense(layer1, 1, name="d_lay0")
             out = tf.sigmoid(layer0)
             return out, layer0
         
         if layer_count == 3:
-            layer3 = tf.layers.dense(images, layer_sizes[2]**2, activation=tf.nn.relu, name="d_lay3")
+            layer3 = tf.layers.dense(images, layer_sizes[2]**2, activation=tf.nn.leaky_relu, name="d_lay3")
             down_sample = scale_down_sample(images, layer_count)
             layer3 = (1-t_value)*down_sample + t_value*layer3
-            layer2 = tf.layers.dense(layer3, layer_sizes[1]**2, activation=tf.nn.relu, name="d_lay2")
-            layer1 = tf.layers.dense(layer2, layer_sizes[0]**2, activation=tf.nn.relu, name="d_lay1")
+            layer2 = tf.layers.dense(layer3, layer_sizes[1]**2, activation=tf.nn.leaky_relu, name="d_lay2")
+            layer1 = tf.layers.dense(layer2, layer_sizes[0]**2, activation=tf.nn.leaky_relu, name="d_lay1")
             layer0 = tf.layers.dense(layer1, 1, name="d_lay0")
             out = tf.sigmoid(layer0)
             return out, layer0
@@ -127,19 +128,19 @@ def generator(z, layer_count, t_value, reuse=False):
     seen before image.
     """
     with tf.variable_scope('generator', reuse=tf.AUTO_REUSE):
-        layer0 = tf.layers.dense(z, layer_sizes[0]**2, activation=tf.nn.relu, name="g_lay0")
+        layer0 = tf.layers.dense(z, layer_sizes[0]**2, activation=tf.nn.leaky_relu, name="g_lay0")
         if layer_count == 0:
             out = tf.tanh(layer0)
             return out
 
-        layer1 = tf.layers.dense(layer0, layer_sizes[1]**2, activation=tf.nn.relu, name="g_lay1")
+        layer1 = tf.layers.dense(layer0, layer_sizes[1]**2, activation=tf.nn.leaky_relu, name="g_lay1")
         if layer_count == 1:
             out = tf.tanh(layer1)
             up_sample = tf.tanh(scale_up_sample(layer0, layer_count))
             out = (1-t_value)*up_sample + t_value*out
             return out
         
-        layer2 = tf.layers.dense(layer1, layer_sizes[2]**2, activation=tf.nn.relu, name="g_lay2")
+        layer2 = tf.layers.dense(layer1, layer_sizes[2]**2, activation=tf.nn.leaky_relu, name="g_lay2")
         if layer_count == 2:
             out = tf.tanh(layer2)
             up_sample = tf.tanh(scale_up_sample(layer1, layer_count))
@@ -147,7 +148,7 @@ def generator(z, layer_count, t_value, reuse=False):
             return out
         
         
-        layer3 = tf.layers.dense(layer2, layer_sizes[3]**2, activation=tf.nn.relu, name="g_lay3")
+        layer3 = tf.layers.dense(layer2, layer_sizes[3]**2, activation=tf.nn.leaky_relu, name="g_lay3")
         if layer_count == 3:
             out = tf.tanh(layer3)
             up_sample = tf.tanh(scale_up_sample(layer2, layer_count))
@@ -158,7 +159,6 @@ def model_loss(input_real, input_z, layer_count, t_value):
     """
     Get the loss for the discriminator and generator
     """
-    tf.print(input_z, output_stream=sys.stdout)
     label_smoothing = 0.9
     
     g_model = generator(input_z, layer_count, t_value)
@@ -175,7 +175,7 @@ def model_loss(input_real, input_z, layer_count, t_value):
                                                 labels=tf.ones_like(d_model_real) * label_smoothing))
     d_loss_fake = tf.reduce_mean(
         tf.nn.sigmoid_cross_entropy_with_logits(logits=d_logits_fake,
-                                                labels=tf.zeros_like(d_model_fake)))
+                                                labels=tf.zeros_like(d_model_fake) * label_smoothing))
     d_loss = d_loss_real + d_loss_fake
 
     # The loss for the generator is how well it manages to fool the discriminator 
@@ -195,19 +195,16 @@ def model_opt(d_loss, g_loss, learning_rate, beta1):
     t_vars = tf.trainable_variables()
     d_vars = [var for var in t_vars if var.name.startswith('discriminator')]
     g_vars = [var for var in t_vars if var.name.startswith('generator')]
-    
-    for var in d_vars:
-        print(var.name)
 
     # Optimize with AdamOptimizer, minimize the loss
     with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
         with tf.variable_scope('optimize', reuse=tf.AUTO_REUSE):
-            d_train_opt = tf.train.AdamOptimizer(learning_rate, beta1=beta1).minimize(d_loss, var_list=d_vars)
-            g_train_opt = tf.train.AdamOptimizer(learning_rate, beta1=beta1).minimize(g_loss, var_list=g_vars)
+            d_train_opt = tf.train.AdamOptimizer(learning_rate=learning_rate, beta1=beta1).minimize(d_loss, var_list=d_vars)
+            g_train_opt = tf.train.AdamOptimizer(learning_rate=learning_rate*2, beta1=beta1).minimize(g_loss, var_list=g_vars)
 
     return d_train_opt, g_train_opt
 
-def train(epoch_count, batch_size, z_dim, learning_rate, beta1, sess, layer_count, smoothing=False):
+def train(epoch_count, batch_size, z_dim, learning_rate, beta1, sess, layer_count, new_init, smoothing=False, restore=False):
     """
     Train the GAN
     """
@@ -215,8 +212,28 @@ def train(epoch_count, batch_size, z_dim, learning_rate, beta1, sess, layer_coun
     input_real, input_z, t_value = model_inputs(z_dim, layer_count)
     d_loss, g_loss = model_loss(input_real, input_z, layer_count, t_value)
     d_opt, g_opt = model_opt(d_loss, g_loss, learning_rate, beta1)
+
+    if new_init:
+        # as we add one layer per iteration for both 
+        # the generator and discriminator, 4 new variables
+        # have to be initialized
+        new_vars = []
+        for var in tf.trainable_variables()[layer_count*4:]:
+            new_vars.append(var)
+        sess.run(tf.initializers.variables(new_vars))
     
-    sess.run(tf.global_variables_initializer())
+    opt_vars = []
+    for var in tf.global_variables():
+        if var.name.startswith('optimize'):
+            opt_vars.append(var)
+    
+    sess.run(tf.initializers.variables(opt_vars))
+
+    if restore:
+        saver = tf.train.Saver()
+        saver.restore(sess, './prog_model')
+        print("Model restored! ... Continuing training")
+
     steps = 0
 
     for epoch_i in range(epoch_count):
@@ -231,44 +248,53 @@ def train(epoch_count, batch_size, z_dim, learning_rate, beta1, sess, layer_coun
             # train the models on current batch
             _ = sess.run(d_opt, feed_dict={input_real: downsized, input_z: batch_z, t_value: t_value_in})
             _ = sess.run(g_opt, feed_dict={input_real: downsized, input_z: batch_z, t_value: t_value_in})
+            _ = sess.run(g_opt, feed_dict={input_real: downsized, input_z: batch_z, t_value: t_value_in})
 
             steps += batch_size
             if steps % 6000 == 0:
-                print(steps)
+                sys.stdout.write(".")
+                sys.stdout.flush()
             
             if print_loss:
                 # At the start of every epoch, get the losses and print them out
                 print_loss = False
-                train_loss_d = d_loss.eval({input_z: batch_z, input_real: downsized, t_value: 1}) #TODO: check with 1!!
+                train_loss_d = d_loss.eval({input_z: batch_z, input_real: downsized, t_value: 1})
                 train_loss_g = g_loss.eval({input_z: batch_z, t_value: 1})
 
-                print("Epoch {}/{}...".format(epoch_i+1, epochs),
-                        "Discriminator Loss: {:.4f}...".format(train_loss_d),
-                        "Generator Loss: {:.4f}".format(train_loss_g))
+                print("\nEpoch {}/{} ... ".format(epoch_i+1, epochs),
+                        "Discriminator Loss: {:.4f} ... ".format(train_loss_d),
+                        "Generator Loss: {:.4f} ... ".format(train_loss_g),
+                        "Layer Count: {:d}".format(layer_count))
+                
         
         # print("Done with one epoch")
         # show_generator_output(sess, layer_count)
+    # show_generator_output(sess, layer_count)
         
 
 batch_size = 16
 z_dim = 100
 learning_rate = 0.001
-beta1 = 0 #0.5
-epochs = 1
+beta1 = 0.5
+epochs = 20
 data_shape = 60000, 28*28
 layer_sizes = [7, 14, 28]
 
+further_train = True
+
 if __name__ == "__main__":
-    tf.enable_eager_execution()
+
     with tf.Graph().as_default():
         with tf.Session() as sess:
-            
-            for layer_count in range(len(layer_sizes)):
-                train(epochs, batch_size, z_dim, learning_rate, beta1, sess, layer_count, smoothing=True)
-                print("Layed addition complete for layer_count: %d ... Starting regular training" % layer_count)
-                train(epochs, batch_size, z_dim, learning_rate, beta1, sess, layer_count, smoothing=False)
+            if further_train:
+                train(epochs, batch_size, z_dim, learning_rate, beta1, sess, 2, new_init=False, smoothing=False, restore=True)
+            else:
+                for layer_count in range(len(layer_sizes)):
+                    train(epochs, batch_size, z_dim, learning_rate, beta1, sess, layer_count, new_init=True, smoothing=True)
+                    print("Layed addition complete for layer_count: %d ... Starting regular training" % layer_count)
+                    train(epochs, batch_size, z_dim, learning_rate, beta1, sess, layer_count, new_init=False, smoothing=False)
+                    print("Done with regular training for layer_count %d ... ADDING NEW LAYER" % layer_count)
             
             saver = tf.train.Saver()
-            # Save the model to file
             save_path = saver.save(sess, './prog_model')
             print("model saved in %s" % save_path)
