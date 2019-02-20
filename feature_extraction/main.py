@@ -3,6 +3,7 @@ import json
 from sklearn.metrics import confusion_matrix
 from sklearn.feature_extraction.text import CountVectorizer
 from bag_vectorizer import BagVectorizer
+import numpy as np
 
 
 def read_training_data(file):
@@ -67,14 +68,25 @@ def remove_scores(words_tuple):
         words.append(t[0])
     return words
 
+def normalize_review_length(x_vector, length):
+    for review_vector in x_vector:
+        length_of_vector = len(review_vector)
+        if length_of_vector < length:
+            diff = length - length_of_vector
+            array_of_minus_ones = np.ones(diff, dtype=int) * -1
+            temp = np.concatenate((np.array(review_vector), array_of_minus_ones))
+            review_vector = temp
+        elif length_of_vector > length:
+            review_vector = review_vector[:length]
+
+def save_data_to_file(x_vector):
+    np.save('../featured_extracted_data', x_vector)
+
 def main():
-    x_train, y_train = read_training_data('../data.json')
+    x_train, y_train = read_training_data('../small_data.json')
 
     bag_vectorizer = BagVectorizer(0, 0, 1, x_train) #TODO: might want to remove common words?
     classifier = train_model(x_train, y_train, bag_vectorizer)
-
-    test_fit = bag_vectorizer.transform(['k', 'joke', 'good', 'bad', 'yaaaaaaaay'])
-    print(classifier.predict_proba(test_fit)[:,1])
 
     words = get_words(bag_vectorizer)
     word_scores = get_scores(words, bag_vectorizer, classifier)
@@ -89,13 +101,19 @@ def main():
     for review in x_train:
         review_vector = []
         review_tokens = bag_vectorizer.tokenize(review)
+        if len(review_tokens) == 0:
+            continue
         for word in review_tokens:
             index = sorted_words.index(word)
             review_vector.append(index)
         x_vector.append(review_vector)
-
+    
     x_vector.sort(key=len)
     median = len(x_vector[int(len(x_vector)/2)])
+
+    normalize_review_length(x_vector, median)
+
+    save_data_to_file(x_vector)
 
 if __name__ == '__main__':
     main()
