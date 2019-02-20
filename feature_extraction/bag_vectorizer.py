@@ -17,8 +17,8 @@ class BagVectorizer:
         self.x_train = x_train
         self.words_to_remove = []
         
-        self.set_words_to_remove()
-        self.vectorizer = CountVectorizer(tokenizer=self.tokenize)
+        # self.set_words_to_remove()
+        self.vectorizer = CountVectorizer(tokenizer=self.simple_tokenizer)
 
     def fit_transform(self):
         return self.vectorizer.fit_transform(self.x_train)

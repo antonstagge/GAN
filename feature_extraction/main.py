@@ -4,7 +4,11 @@ from sklearn.metrics import confusion_matrix
 from sklearn.feature_extraction.text import CountVectorizer
 from bag_vectorizer import BagVectorizer
 import numpy as np
+import re
 
+
+regex = r"[^!\"#$%&'()*+,\-./:;<=>?@[\]^_`{|}~“”¨«»®´·º½¾¿¡§£₤‘’0-9A-Za-zöäå\s≈∞©€\\♥]"
+pattern = re.compile(regex)
 
 def read_training_data(file):
     """ Convert file data to x and y vectors
@@ -17,10 +21,18 @@ def read_training_data(file):
     with open(file, 'r') as f:
         review_list = json.load(f)
         for r in review_list:
-            x_vector.append(r['review'])
-            y_vector.append(r['recommended'])
+            rev = r['review']
+            if(is_good(rev)):
+                x_vector.append(r['review'])
+                y_vector.append(r['recommended'])
     return x_vector, y_vector
 
+
+def is_good(review):
+    if pattern.search(review) is None:
+        return True
+    else:
+        return False
 
 def train_model(x_train, y_train, bag_vectorizer):
     """ Train the model
@@ -87,7 +99,7 @@ def save_data_to_file(x_vector, filename):
     np.save(filename, x_vector)
 
 def main():
-    x_train, y_train = read_training_data('../small_data.json')
+    x_train, y_train = read_training_data('../medium.json')
 
     bag_vectorizer = BagVectorizer(0, 0, 1, x_train) #TODO: might want to remove common words?
     classifier = train_model(x_train, y_train, bag_vectorizer)
@@ -108,7 +120,7 @@ def main():
         review_tokens = bag_vectorizer.tokenize(review)
         if len(review_tokens) == 0:
             continue
-        for word in review_tokens:
+        for word in review_tokens:  
             index = sorted_words.index(word)
             review_vector.append(index)
         x_vector.append(review_vector)
