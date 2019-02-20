@@ -69,18 +69,22 @@ def remove_scores(words_tuple):
     return words
 
 def normalize_review_length(x_vector, length):
+    return_array = []
     for review_vector in x_vector:
+        new_vector = []
         length_of_vector = len(review_vector)
-        if length_of_vector < length:
-            diff = length - length_of_vector
-            array_of_minus_ones = np.ones(diff, dtype=int) * -1
-            temp = np.concatenate((np.array(review_vector), array_of_minus_ones))
-            review_vector = temp
-        elif length_of_vector > length:
-            review_vector = review_vector[:length]
+        for i in range(length):
+            if i < length_of_vector:
+                new_vector.append(review_vector[i])
+            else:
+                new_vector.append(-1)
+        return_array.append(new_vector)
+    return return_array
 
-def save_data_to_file(x_vector):
-    np.save('../featured_extracted_data', x_vector)
+
+def save_data_to_file(x_vector, filename):
+    x_vector = np.array(x_vector)
+    np.save(filename, x_vector)
 
 def main():
     x_train, y_train = read_training_data('../small_data.json')
@@ -96,6 +100,7 @@ def main():
     words_tuple.sort(key=lambda x: x[1])
 
     sorted_words = remove_scores(words_tuple)
+    save_data_to_file(sorted_words, '../dictionary')
 
     x_vector = []
     for review in x_train:
@@ -111,9 +116,9 @@ def main():
     x_vector.sort(key=len)
     median = len(x_vector[int(len(x_vector)/2)])
 
-    normalize_review_length(x_vector, median)
+    x_vector = normalize_review_length(x_vector, median)
 
-    save_data_to_file(x_vector)
+    save_data_to_file(x_vector, '../featured_extracted_data')
 
 if __name__ == '__main__':
     main()
