@@ -1,4 +1,7 @@
 from sklearn.naive_bayes import MultinomialNB
+from sklearn.svm import SVC
+from sklearn.metrics import roc_auc_score
+
 import json
 from sklearn.metrics import confusion_matrix
 from sklearn.feature_extraction.text import CountVectorizer
@@ -36,25 +39,30 @@ def is_good(review):
     else:
         return False
 
-def train_model(x_train, y_train, bag_vectorizer):
+def train_model_nb(x_train_fit, y_train):
     """ Train the model
     """
-    # create a matrix with rows as texts and columns as tokens,
-    # each cell containst the number of times the token appears in the text
-    x_train_fit = bag_vectorizer.fit_transform()
-    bag_vectorizer.flag = False
     
     classifier = MultinomialNB()
     classifier.fit(x_train_fit, y_train)
 
     return classifier
 
-def test_model(classifier, bag_vectorizer, x_test, y_test):
+
+def train_model_svm(x_train_fit, y_train):
+    """ Train the model
+    """
+    
+    classifier = SVC(kernel='linear', cache_size=1000)
+    classifier.fit(x_train_fit, y_train)
+
+    return classifier
+
+def test_model(classifier, x_test_fit, y_test):
     """ Test the model accuracy by counting the 
     number of wrong predictions. Also prints the
     confusion matrix. 
     """
-    x_test_fit = bag_vectorizer.transform(x_test)
     y_pred = classifier.predict(x_test_fit)
 
     error = 0.0
@@ -66,6 +74,19 @@ def test_model(classifier, bag_vectorizer, x_test, y_test):
     confusion = confusion_matrix(y_test, y_pred)
     print("pred-actual \n[[neg-neg pos-neg]\n[neg-pos pos-pos]]")
     print(confusion)
+    print()
+
+def auc(isSVM, classifier, x_test_fit, y_test):
+    y_score = None
+    if isSVM:
+        y_score = classifier.decision_function(x_test_fit)
+    else:
+        y_score = classifier.predict_proba(x_test_fit)[:,1]
+
+    auc = roc_auc_score(y_test, y_score)
+    print("THE AREA UNDER ROC IS: %.3f" % auc)
+    print()
+    return auc
 
 def get_words(bag_vectorizer):
     return bag_vectorizer.get_feature_names()
@@ -108,14 +129,49 @@ def create_dict_from_list(list_of_words):
     return dictionary
 
 def main():
-    x_train, y_train = read_training_data('../data.json')
+    x_input, y_input = read_training_data('../data.json')
+
+    index_80_percent = int(len(x_input)*0.8)
+    x_train = x_input[:index_80_percent]
+    y_train = y_input[:index_80_percent]
+
+    x_test = x_input[index_80_percent:]
+    y_test = y_input[index_80_percent:]
+
 
     print("Started bag")
-    bag_vectorizer = BagVectorizer(0, 0, 1, x_train) #TODO: might want to remove common words?
-    print("After bag")
+    bag_vectorizer = BagVectorizer(0, 0, 1, x_input)
+    bag_vectorizer.fit_transform()
+    bag_vectorizer.flag = False
 
-    classifier = train_model(x_train, y_train, bag_vectorizer)
+
+    x_train_fit = bag_vectorizer.transform(x_train)
+    x_test_fit = bag_vectorizer.transform(x_test)
+
+    print("Started with nb classifier")
+    classifier_nb = train_model_nb(x_train_fit, y_train)
+    print("Started with svm classifier")
+    classifier_svm = train_model_svm(x_train_fit, y_train)
+
+
+    print("Started testing nb classifier")
+    test_model(classifier_nb, x_test_fit, y_test)
+    nb_auc = auc(False, classifier_nb, x_test_fit, y_test)
+
+    print("Started testing svm classifier")
+    test_model(classifier_svm, x_test_fit, y_test)
+    svm_auc = auc(True, classifier_svm, x_test_fit, y_test)
+
     print("After train CHO CHO")
+
+    classifier = None
+    if nb_auc > svm_auc:
+        print("NB WON")
+        classifier = classifier_nb
+    else:
+        print("SVM WON")
+        classifier = classifier_svm
+
 
     words = get_words(bag_vectorizer)
     word_scores = get_scores(words, bag_vectorizer, classifier)
@@ -129,10 +185,7 @@ def main():
     sorted_word_dict = create_dict_from_list(sorted_words)
 
     x_vector = []
-    count = 0
     for review_tokens in bag_vectorizer.reviews_tokens:
-        print("Count: %d" %(count))
-        count +=1
         review_vector = []
         if len(review_tokens) == 0:
             continue
