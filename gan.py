@@ -181,13 +181,13 @@ def train(epoch_count, batch_size, z_dim, learning_rate, beta1, get_batches, dat
                 _ = sess.run(d_opt, feed_dict={input_real: batch_images, input_z: batch_z})
                 _ = sess.run(g_opt, feed_dict={input_real: batch_images, input_z: batch_z})
                 count += batch_size/data_shape[0]
-                print("... %.3f" %count)
+                print("... %.3f" %count, end=' ')
                 if print_loss:
                     # At the start of every epoch, get the losses and print them out
                     print_loss = False
                     train_loss_d = d_loss.eval({input_z: batch_z, input_real: batch_images})
                     train_loss_g = g_loss.eval({input_z: batch_z})
-
+                    print()
                     print("Epoch {}/{}...".format(epoch_i+1, epochs),
                           "Discriminator Loss: {:.4f}...".format(train_loss_d),
                           "Generator Loss: {:.4f}".format(train_loss_g))
