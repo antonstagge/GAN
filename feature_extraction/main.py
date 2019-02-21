@@ -9,6 +9,8 @@ import re
 
 regex = r"[^!\"#$%&'()*+,\-./:;<=>?@[\]^_`{|}~“”¨«»®´·º½¾¿¡§£₤‘’0-9A-Za-zöäå\s≈∞©€\\♥]"
 pattern = re.compile(regex)
+median = 33
+padding = -1
 
 def read_training_data(file):
     """ Convert file data to x and y vectors
@@ -40,6 +42,7 @@ def train_model(x_train, y_train, bag_vectorizer):
     # create a matrix with rows as texts and columns as tokens,
     # each cell containst the number of times the token appears in the text
     x_train_fit = bag_vectorizer.fit_transform()
+    bag_vectorizer.flag = False
     
     classifier = MultinomialNB()
     classifier.fit(x_train_fit, y_train)
@@ -98,11 +101,21 @@ def save_data_to_file(x_vector, filename):
     x_vector = np.array(x_vector)
     np.save(filename, x_vector)
 
-def main():
-    x_train, y_train = read_training_data('../medium.json')
+def create_dict_from_list(list_of_words):
+    dictionary = {}
+    for i, word in enumerate(list_of_words):
+        dictionary[word] = i
+    return dictionary
 
+def main():
+    x_train, y_train = read_training_data('../data.json')
+
+    print("Started bag")
     bag_vectorizer = BagVectorizer(0, 0, 1, x_train) #TODO: might want to remove common words?
+    print("After bag")
+
     classifier = train_model(x_train, y_train, bag_vectorizer)
+    print("After train CHO CHO")
 
     words = get_words(bag_vectorizer)
     word_scores = get_scores(words, bag_vectorizer, classifier)
@@ -113,23 +126,28 @@ def main():
 
     sorted_words = remove_scores(words_tuple)
     save_data_to_file(sorted_words, '../dictionary')
+    sorted_word_dict = create_dict_from_list(sorted_words)
 
     x_vector = []
-    for review in x_train:
+    count = 0
+    for review_tokens in bag_vectorizer.reviews_tokens:
+        print("Count: %d" %(count))
+        count +=1
         review_vector = []
-        review_tokens = bag_vectorizer.tokenize(review)
         if len(review_tokens) == 0:
             continue
-        for word in review_tokens:  
-            index = sorted_words.index(word)
-            review_vector.append(index)
+        for i, word in enumerate(review_tokens):
+            if i == median:
+                break
+            index_in_sorted_list = sorted_word_dict[word]
+            review_vector.append(index_in_sorted_list)
+        if len(review_vector) < median:
+            diff = median - len(review_vector)
+            for i in range(diff):
+                review_vector.append(padding)
+
         x_vector.append(review_vector)
     
-    x_vector.sort(key=len)
-    median = len(x_vector[int(len(x_vector)/2)])
-
-    x_vector = normalize_review_length(x_vector, median)
-
     save_data_to_file(x_vector, '../featured_extracted_data')
 
 if __name__ == '__main__':

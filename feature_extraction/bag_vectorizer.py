@@ -16,6 +16,8 @@ class BagVectorizer:
         self.bag_size = bag_size
         self.x_train = x_train
         self.words_to_remove = []
+        self.reviews_tokens = []
+        self.flag = True
         
         # self.set_words_to_remove()
         self.vectorizer = CountVectorizer(tokenizer=self.simple_tokenizer)
@@ -67,8 +69,12 @@ class BagVectorizer:
         """ Remove any type of punctuation and the words 
         and then split on whitespace
         """
+        
         re_tok = re.compile(punctuation_string)
-        return re_tok.sub(' ', text).split()
+        tokens = re_tok.sub(' ', text).split()
+        if self.flag:
+            self.reviews_tokens.append(tokens)
+        return tokens
 
 
     def tokenize(self, text):
