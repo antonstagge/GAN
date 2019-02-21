@@ -171,6 +171,7 @@ def train(epoch_count, batch_size, z_dim, learning_rate, beta1, get_batches, dat
             # Init new model
             sess.run(tf.global_variables_initializer())
 
+        count = 0
         for epoch_i in range(epoch_count):
             print_loss = True
             for batch_images in get_batches(batch_size):
@@ -179,7 +180,8 @@ def train(epoch_count, batch_size, z_dim, learning_rate, beta1, get_batches, dat
                 # train the models on current batch
                 _ = sess.run(d_opt, feed_dict={input_real: batch_images, input_z: batch_z})
                 _ = sess.run(g_opt, feed_dict={input_real: batch_images, input_z: batch_z})
-                
+                count += batch_size/data_shape[0]
+                print("... %.3f" %count)
                 if print_loss:
                     # At the start of every epoch, get the losses and print them out
                     print_loss = False
@@ -198,10 +200,10 @@ def train(epoch_count, batch_size, z_dim, learning_rate, beta1, get_batches, dat
 batch_size = 16
 z_dim = 100
 learning_rate = 0.001
-beta1 = 0.0
-epochs = 500
+beta1 = 0.5
+epochs = 20
 shape = x_train.shape
 
 if __name__ == "__main__":
     with tf.Graph().as_default():
-        train(epochs, batch_size, z_dim, learning_rate, beta1, get_batches, shape, show=True)
+        train(epochs, batch_size, z_dim, learning_rate, beta1, get_batches, shape, show=False)
