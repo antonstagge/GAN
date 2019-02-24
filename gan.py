@@ -13,8 +13,8 @@ mnist = tf.keras.datasets.mnist
 # dictionary = np.load('dictionary.npy')
 
 # try not normalize?
-x_train = 2 * tf.keras.utils.normalize(x_train, axis=1).reshape(x_train.shape[0], -1) - 1. # (60000, 784) instead of (60000, 28, 28)
-x_test = 2 * tf.keras.utils.normalize(x_test, axis=1).reshape(x_test.shape[0], -1) - 1.
+x_train = 2 * (x_train.reshape(x_train.shape[0], -1) / 255) - 1. # (60000, 784) instead of (60000, 28, 28)
+x_test = 2 * (x_test.reshape(x_test.shape[0], -1) / 255) - 1.
 
 def save_visualization(X, nh_nw, save_path='./images/sample.jpg'):
     X = X.reshape(X.shape[0], 28, 28)
@@ -64,10 +64,6 @@ def show_generator_output(sess, n_images, input_z, out_dim):
     samples = (samples + 1.) /2
     samples = np.sqrt(samples)
     for sample in samples:
-        print(sample[7][14])
-        # sample = sample * 255
-        # print(sample[0][0])
-        # print(sample[14][7])
         plt.imshow(sample, cmap=plt.cm.binary)
         plt.show()
 
@@ -232,11 +228,10 @@ def train(epoch_count, batch_size, z_dim, learning_rate, beta1, data_shape, show
                         generator(input_z, data_shape[1]),
                         feed_dict={input_z: example_z})
                     
-                    generated_samples = (generated_samples +1.)/2
                     save_visualization(generated_samples, (4,4), save_path='./fake_images/sample_%03d.jpg' % int(epoch_i))
-                    save_visualization(batch_images, (4,4), save_path='./real_images/batch_%03d.jpg' % int(epoch_i))
+                    # save_visualization(batch_images, (4,4), save_path='./real_images/batch_%03d.jpg' % int(epoch_i))
 
-        Save the model to file
+        # Save the model to file
         save_path = saver.save(sess, './model.ckpt')
         print("model saved in %s" % save_path)
         
@@ -245,9 +240,9 @@ batch_size = 16
 z_dim = 100
 learning_rate = 0.001
 beta1 = 0.5
-epochs = 10
+epochs = 20
 shape = x_train.shape
 
 if __name__ == "__main__":
     with tf.Graph().as_default():
-        train(epochs, batch_size, z_dim, learning_rate, beta1, shape, show=False)
+        train(epochs, batch_size, z_dim, learning_rate, beta1, shape, show=True)
