@@ -69,7 +69,7 @@ def test_model(classifier, x_test_fit, y_test):
     for i in range(len(y_pred)):
         if y_pred[i] != y_test[i]:
             error += 1
-    print("The model accuracy was: %.3f" % (1 - error/100))
+    print("The model accuracy was: %.3f" % (1 - error/len(y_pred)))
 
     confusion = confusion_matrix(y_test, y_pred)
     print("pred-actual \n[[neg-neg pos-neg]\n[neg-pos pos-pos]]")
