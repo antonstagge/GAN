@@ -29,8 +29,8 @@ def save_visualization(X, nh_nw, save_path='./images/sample.jpg'):
     scipy.misc.imsave(save_path, img)
 
 def lrelu(X, leak=0.2):
-    f1 = 0.5 * (1 + leak)
-    f2 = 0.5 * (1 - leak)
+    f1 = 0.5 * (1 + leak) # 0.6
+    f2 = 0.5 * (1 - leak) # 0.4
     return f1 * X + f2 * tf.abs(X)
 
 def get_batches(batch_size, x_train):
@@ -162,7 +162,7 @@ def model_loss(input_real, input_z, out_dim):
 
     return d_loss, g_loss
 
-def model_opt(d_loss, g_loss, learning_rate, beta1):
+def model_optimizers(d_loss, g_loss, learning_rate, beta1):
     """
     Get optimization operations
     """
@@ -184,7 +184,7 @@ def train(epoch_count, batch_size, z_dim, learning_rate, beta1, data_shape, show
     """
     input_real, input_z = model_inputs(data_shape[1], z_dim)
     d_loss, g_loss = model_loss(input_real, input_z, data_shape[1])
-    d_opt, g_opt = model_opt(d_loss, g_loss, learning_rate, beta1)
+    d_opt, g_opt = model_optimizers(d_loss, g_loss, learning_rate, beta1)
     
     saver = tf.train.Saver()
     
