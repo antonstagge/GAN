@@ -91,9 +91,12 @@ def auc(isSVM, classifier, x_test_fit, y_test):
 def get_words(bag_vectorizer):
     return bag_vectorizer.get_feature_names()
         
-def get_scores(words, bag_vectorizer, classifier):
+def get_scores(isSVM, words, bag_vectorizer, classifier):
     words_fit = bag_vectorizer.transform(words)
-    return classifier.predict_proba(words_fit)[:,1]
+    if isSVM:
+        return classifier.decision_function(words_fit)
+    else:
+        return classifier.predict_proba(words_fit)[:,1]
 
 def create_tuples(words, word_scores):
     return list(zip(words, word_scores))
@@ -165,16 +168,19 @@ def main():
     print("After train CHO CHO")
 
     classifier = None
+    isSVM = None
     if nb_auc > svm_auc:
         print("NB WON")
         classifier = classifier_nb
+        isSVM = False
     else:
         print("SVM WON")
         classifier = classifier_svm
+        isSVM = True
 
 
     words = get_words(bag_vectorizer)
-    word_scores = get_scores(words, bag_vectorizer, classifier)
+    word_scores = get_scores(isSVM, words, bag_vectorizer, classifier)
 
     words_tuple = create_tuples(words, word_scores)
     
