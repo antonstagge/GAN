@@ -4,17 +4,17 @@ import matplotlib.pyplot as plt
 import numpy as np
 import sys
 
-mnist = tf.keras.datasets.mnist
-(x_train, y_train), (x_test, y_test) = mnist.load_data()   # 28x28 numbers of 0-9
+# mnist = tf.keras.datasets.mnist
+# (x_train, y_train), (x_test, y_test) = mnist.load_data()   # 28x28 numbers of 0-9
 
-# x_train = np.load('featured_extracted_data.npy')
-# print(x_train.shape)
+x_train = np.load('featured_extracted_data.npy')
+print(x_train.shape)
 
-# dictionary = np.load('dictionary.npy')
+dictionary = np.load('dictionary.npy')
 
 # try not normalize?
 x_train = 2 * (x_train.reshape(x_train.shape[0], -1) / 255) - 1. # (60000, 784) instead of (60000, 28, 28)
-x_test = 2 * (x_test.reshape(x_test.shape[0], -1) / 255) - 1.
+# x_test = 2 * (x_test.reshape(x_test.shape[0], -1) / 255) - 1.
 
 def save_visualization(X, nh_nw, save_path='./images/sample.jpg'):
     X = X.reshape(X.shape[0], 28, 28)
@@ -60,23 +60,23 @@ def show_generator_output(sess, n_images, input_z, out_dim):
         generator(input_z, out_dim),
         feed_dict={input_z: example_z})
 
-    samples = samples.reshape((n_images, 28,28))
-    samples = (samples + 1.) /2
-    samples = np.sqrt(samples)
-    for sample in samples:
-        plt.imshow(sample, cmap=plt.cm.binary)
-        plt.show()
+    # samples = samples.reshape((n_images, 28,28))
+    # samples = (samples + 1.) /2
+    # samples = np.sqrt(samples)
+    # for sample in samples:
+    #     plt.imshow(sample, cmap=plt.cm.binary)
+    #     plt.show()
 
-    # sentence = ""
-    # for number in samples[0]:
-    #     index = int(number)
-    #     if index < 0 or index > len(dictionary):
-    #         sentence += " - "
-    #     else:
-    #         word = dictionary[index]
-    #         sentence += " " + word
+    sentence = ""
+    for number in samples[0]:
+        index = int(number)
+        if index < 0 or index > len(dictionary):
+            sentence += " - "
+        else:
+            word = dictionary[index]
+            sentence += " " + word
     
-    # print(sentence)
+    print(sentence)
 
 def model_inputs(image_size, z_dim):
     """
@@ -126,7 +126,7 @@ def generator(z, out_dim):
         # Logits
         logits = lrelu(tf.layers.dense(layer2, out_dim))
         
-        logits = tf.nn.tanh(logits)
+        # logits = tf.nn.tanh(logits)
         
         return logits
 
@@ -228,7 +228,7 @@ def train(epoch_count, batch_size, z_dim, learning_rate, beta1, data_shape, show
                         generator(input_z, data_shape[1]),
                         feed_dict={input_z: example_z})
                     
-                    save_visualization(generated_samples, (4,4), save_path='./fake_images/sample_%03d.jpg' % int(epoch_i))
+                    # save_visualization(generated_samples, (4,4), save_path='./fake_images/sample_%03d.jpg' % int(epoch_i))
                     # save_visualization(batch_images, (4,4), save_path='./real_images/batch_%03d.jpg' % int(epoch_i))
 
         # Save the model to file
@@ -239,8 +239,8 @@ def train(epoch_count, batch_size, z_dim, learning_rate, beta1, data_shape, show
 batch_size = 16
 z_dim = 100
 learning_rate = 0.001
-beta1 = 0.5
-epochs = 20
+beta1 = 0.2
+epochs = 50
 shape = x_train.shape
 
 if __name__ == "__main__":
