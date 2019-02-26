@@ -11,10 +11,35 @@ x_train = np.load('featured_extracted_data.npy')
 print(x_train.shape)
 
 dictionary = np.load('dictionary.npy')
+# print("========== best 20")
+# for i in range(20):
+#     print(dictionary[-(i+1)])
+# print()
+# print("========= worst 20")
+# for i in range(20):
+#     print(dictionary[i])
 
+# print(len(dictionary))
+# exit()
 # try not normalize?
-x_train = 2 * (x_train.reshape(x_train.shape[0], -1) / 255) - 1. # (60000, 784) instead of (60000, 28, 28)
+# x_train = 2 * (x_train.reshape(x_train.shape[0], -1) / 255) - 1. # (60000, 784) instead of (60000, 28, 28)
 # x_test = 2 * (x_test.reshape(x_test.shape[0], -1) / 255) - 1.
+
+def save_review_sample(generated_samples, save_path='/fake_reviews/sample.txt'):
+    f = open(save_path, 'wb+')
+    for sample in generated_samples:
+        sentence = ""
+        for number in sample:
+            index = int(number)
+            if index < 0 or index > len(dictionary):
+                sentence += " - "
+            else:
+                word = dictionary[index]
+                sentence += " " + word
+        
+        sentence += '\n\n'
+        f.write(sentence.encode('utf8'))
+    f.close()
 
 def save_visualization(X, nh_nw, save_path='./images/sample.jpg'):
     X = X.reshape(X.shape[0], 28, 28)
@@ -124,7 +149,7 @@ def generator(z, out_dim):
         layer2 = lrelu(tf.layers.dense(layer1, 200))
         
         # Logits
-        logits = lrelu(tf.layers.dense(layer2, out_dim))
+        logits = tf.layers.dense(layer2, out_dim)
         
         # logits = tf.nn.tanh(logits)
         
@@ -192,7 +217,7 @@ def train(epoch_count, batch_size, z_dim, learning_rate, beta1, data_shape, show
         try:
             # raise ValueError
             # Try to restore a model from file
-            saver.restore(sess, "./model.ckpt")
+            saver.restore(sess, "./review_model.ckpt")
             print("Model restored!")
             if show:
                 show_generator_output(sess, 10, input_z, data_shape[1])
@@ -204,13 +229,18 @@ def train(epoch_count, batch_size, z_dim, learning_rate, beta1, data_shape, show
         
         for epoch_i in range(epoch_count):
             print_loss = True
+            count = 0
             for batch_images in get_batches(batch_size, x_train):
                 # create some random noise
                 batch_z = np.random.uniform(-1, 1, size=(batch_size, z_dim))
-                
+                count += batch_size
                 # train the models on current batch
                 _ = sess.run(d_opt, feed_dict={input_real: batch_images, input_z: batch_z})
                 _ = sess.run(g_opt, feed_dict={input_real: batch_images, input_z: batch_z})
+
+                if count % 5000 == 0:
+                    sys.stdout.write('.')
+                    sys.stdout.flush()
 
                 if print_loss:
                     # At the start of every epoch, get the losses and print them out
@@ -228,21 +258,22 @@ def train(epoch_count, batch_size, z_dim, learning_rate, beta1, data_shape, show
                         generator(input_z, data_shape[1]),
                         feed_dict={input_z: example_z})
                     
+                    save_review_sample(generated_samples[:10], save_path='./fake_reviews/sample_2_%03d.txt' % int(epoch_i))
                     # save_visualization(generated_samples, (4,4), save_path='./fake_images/sample_%03d.jpg' % int(epoch_i))
                     # save_visualization(batch_images, (4,4), save_path='./real_images/batch_%03d.jpg' % int(epoch_i))
 
         # Save the model to file
-        save_path = saver.save(sess, './model.ckpt')
+        save_path = saver.save(sess, './review_model.ckpt')
         print("model saved in %s" % save_path)
         
 
-batch_size = 16
+batch_size = 100
 z_dim = 100
 learning_rate = 0.001
 beta1 = 0.2
-epochs = 50
+epochs = 30
 shape = x_train.shape
 
 if __name__ == "__main__":
     with tf.Graph().as_default():
-        train(epochs, batch_size, z_dim, learning_rate, beta1, shape, show=True)
+        train(epochs, batch_size, z_dim, learning_rate, beta1, shape, show=False)

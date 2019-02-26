@@ -10,8 +10,10 @@ import numpy as np
 import re
 
 
-regex = r"[^!\"#$%&'()*+,\-./:;<=>?@[\]^_`{|}~“”¨«»®´·º½¾¿¡§£₤‘’0-9A-Za-zöäå\s≈∞©€\\♥]"
+regex = r"[^!\"#$%&'()*+,\-./:;<=>?@[\]^_`{|}~“”¨«»®´·º½¾¿¡§£₤‘’0-9A-Za-zöäå\s≈∞©€\\]|(\\u)"
+duplicate_words_regex = r"\b(\w+)\s+(\w+\s+)?\1\2?\b"
 pattern = re.compile(regex)
+duplicate_pattern = re.compile(duplicate_words_regex)
 median = 33
 padding = -1
 
@@ -28,13 +30,13 @@ def read_training_data(file):
         for r in review_list:
             rev = r['review']
             if(is_good(rev)):
-                x_vector.append(r['review'])
+                x_vector.append(duplicate_pattern.sub(' ', rev))
                 y_vector.append(r['recommended'])
     return x_vector, y_vector
 
 
 def is_good(review):
-    if pattern.search(review) is None:
+    if len(review) < 1000 and pattern.search(review) is None:
         return True
     else:
         return False
@@ -151,33 +153,36 @@ def main():
     x_train_fit = bag_vectorizer.transform(x_train)
     x_test_fit = bag_vectorizer.transform(x_test)
 
+
     print("Started with nb classifier")
     classifier_nb = train_model_nb(x_train_fit, y_train)
-    print("Started with svm classifier")
-    classifier_svm = train_model_svm(x_train_fit, y_train)
+    # print("Started with svm classifier")
+    # classifier_svm = train_model_svm(x_train_fit, y_train)
 
 
     print("Started testing nb classifier")
     test_model(classifier_nb, x_test_fit, y_test)
     nb_auc = auc(False, classifier_nb, x_test_fit, y_test)
 
-    print("Started testing svm classifier")
-    test_model(classifier_svm, x_test_fit, y_test)
-    svm_auc = auc(True, classifier_svm, x_test_fit, y_test)
+    # print("Started testing svm classifier")
+    # test_model(classifier_svm, x_test_fit, y_test)
+    # svm_auc = auc(True, classifier_svm, x_test_fit, y_test)
 
     print("After train CHO CHO")
 
-    classifier = None
-    isSVM = None
-    if nb_auc > svm_auc:
-        print("NB WON")
-        classifier = classifier_nb
-        isSVM = False
-    else:
-        print("SVM WON")
-        classifier = classifier_svm
-        isSVM = True
+    # classifier = None
+    # isSVM = None
+    # if nb_auc > svm_auc:
+    #     print("NB WON")
+    #     classifier = classifier_nb
+    #     isSVM = False
+    # else:
+    #     print("SVM WON")
+    #     classifier = classifier_svm
+    #     isSVM = True
 
+    classifier = classifier_nb
+    isSVM = False
 
     words = get_words(bag_vectorizer)
     word_scores = get_scores(isSVM, words, bag_vectorizer, classifier)
@@ -188,6 +193,14 @@ def main():
 
     sorted_words = remove_scores(words_tuple)
     save_data_to_file(sorted_words, '../dictionary')
+
+    print("The best 3 words are")
+    for i in range(3):
+        print(sorted_words[-(i+1)])
+    print("The worst 3 words are")
+    for i in range(3):
+        print(sorted_words[i])
+
     sorted_word_dict = create_dict_from_list(sorted_words)
 
     x_vector = []

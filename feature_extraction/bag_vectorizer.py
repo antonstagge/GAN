@@ -72,6 +72,7 @@ class BagVectorizer:
         
         re_tok = re.compile(punctuation_string)
         tokens = re_tok.sub(' ', text).split()
+
         if self.flag:
             self.reviews_tokens.append(tokens)
         return tokens
